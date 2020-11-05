@@ -40,7 +40,11 @@ class Token(NamedTuple):
     dep_: str = None
     ent_type_: str = None
     text_id: int = None
-
+    sem: str = None
+    ccg: str = None
+    lem: str = None
+    dep: str = None
+    pos: str=None
     def __str__(self):
         return self.text
 

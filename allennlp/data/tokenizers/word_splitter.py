@@ -128,7 +128,57 @@ class JustSpacesWordSplitter(WordSplitter):
     """
     @overrides
     def split_words(self, sentence: str) -> List[Token]:
+        # Check if the features are in a list and are now processed here,
+        # that's wrong, so make a string out of it by joining again
+        if isinstance(sentence, list):
+            sentence = " ".join(sentence)
         return [Token(t) for t in sentence.split()]
+
+@WordSplitter.register('feature_just_spaces')
+class FeatureJustSpacesWordSplitter(WordSplitter):
+    """
+    A ``WordSplitter`` that assumes you've already done your own tokenization somehow and have
+    separated the tokens by spaces.  We just split the input string on whitespace and return the
+    resulting list.  We use a somewhat odd name here to avoid coming too close to the more
+    commonly used ``SpacyWordSplitter``.
+
+    Note that we use ``sentence.split()``, which means that the amount of whitespace between the
+    tokens does not matter.  This will never result in spaces being included as tokens.
+    """
+    @overrides
+    def split_words(self, sentence: str, sem: list = None, ccg: list = None, lem: list = None, dep: list = None, pos: list = None) -> List[Token]:
+        token_list = []
+        for idx, t in enumerate(sentence.split()):
+            if sem:
+                if idx < len(sem):
+                    sem_tag = sem[idx]
+                else:
+                    sem_tag = "UNK"
+                    print ("WARNING: add UNK tag because index is too large", idx, len(sem))
+            else:
+                sem_tag = None
+            ccg_tag = ccg[idx] if ccg else None
+            lemma = lem[idx] if lem else None
+            dep_tag = dep[idx] if dep else None
+            pos_tag = pos[idx] if pos else None
+
+            # Since we only add 1 feature at a time for now, this works
+            # Remember that this is a breaking change for POS
+            if sem:
+                add_tag = sem_tag
+            elif ccg:
+                add_tag = ccg[idx]
+            elif lem:
+                add_tag = lem[idx]
+            elif dep:
+                add_tag = dep[idx]
+            elif pos:
+                add_tag = pos[idx]
+            else:
+                raise ValueError("Should never happen: use feature word splitter only when adding features")
+
+            token_list.append(Token(text=t, tag_=add_tag, idx=idx, sem=sem_tag, ccg=ccg_tag, lem=lemma, dep=dep_tag, pos=pos_tag))
+        return token_list
 
 
 def _remove_spaces(tokens: List[spacy.tokens.Token]) -> List[spacy.tokens.Token]:

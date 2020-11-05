@@ -37,7 +37,8 @@ class PretrainedTransformerTokenizer(Tokenizer):
                  model_name: str,
                  do_lowercase: bool,
                  start_tokens: List[str] = None,
-                 end_tokens: List[str] = None) -> None:
+                 end_tokens: List[str] = None,
+                 sem=None, ccg=None, lem=None, dep=None, pos=None) -> None:
         if model_name.endswith("-cased") and do_lowercase:
             logger.warning("Your pretrained model appears to be cased, "
                            "but your tokenizer is lowercasing tokens.")
@@ -50,7 +51,7 @@ class PretrainedTransformerTokenizer(Tokenizer):
         self._end_tokens = end_tokens if end_tokens is not None else default_end_tokens
 
     @overrides
-    def tokenize(self, text: str) -> List[Token]:
+    def tokenize(self, text, sem=None, ccg=None, lem=None, dep=None, pos=None) -> List[Token]:
         # TODO(mattg): track character offsets.  Might be too challenging to do it here, given that
         # pytorch-transformers is dealing with the whitespace...
         token_strings = self._start_tokens + self._tokenizer.tokenize(text) + self._end_tokens

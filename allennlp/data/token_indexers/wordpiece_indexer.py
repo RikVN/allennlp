@@ -77,7 +77,8 @@ class WordpieceIndexer(TokenIndexer[int]):
                  end_tokens: List[str] = None,
                  separator_token: str = "[SEP]",
                  truncate_long_sequences: bool = True,
-                 token_min_padding_length: int = 0) -> None:
+                 token_min_padding_length: int = 0,
+                 no_offsets: bool = False,) -> None:
         super().__init__(token_min_padding_length)
         self.vocab = vocab
 
@@ -94,6 +95,7 @@ class WordpieceIndexer(TokenIndexer[int]):
         self._do_lowercase = do_lowercase
         self._truncate_long_sequences = truncate_long_sequences
         self._warned_about_truncation = False
+        self.no_offsets = no_offsets
 
         if never_lowercase is None:
             # Use the defaults
@@ -146,21 +148,17 @@ class WordpieceIndexer(TokenIndexer[int]):
                 if self._do_lowercase and token.text not in self._never_lowercase
                 else token.text
                 for token in tokens)
-
         # Obtain a nested sequence of wordpieces, each represented by a list of wordpiece ids
         token_wordpiece_ids = [[self.vocab[wordpiece] for wordpiece in self.wordpiece_tokenizer(token)]
                                for token in text]
-
         # Flattened list of wordpieces. In the end, the output of the model (e.g., BERT) should
         # have a sequence length equal to the length of this list. However, it will first be split into
         # chunks of length `self.max_pieces` so that they can be fit through the model. After packing
         # and passing through the model, it should be unpacked to represent the wordpieces in this list.
         flat_wordpiece_ids = [wordpiece for token in token_wordpiece_ids for wordpiece in token]
-
         # Similarly, we want to compute the token_type_ids from the flattened wordpiece ids before
         # we do the windowing; otherwise [SEP] tokens would get counted multiple times.
         flat_token_type_ids = _get_token_type_ids(flat_wordpiece_ids, self._separator_ids)
-
         # The code below will (possibly) pack the wordpiece sequence into multiple sub-sequences by using a sliding
         # window `window_length` that overlaps with previous windows according to the `stride`. Suppose we have
         # the following sentence: "I went to the store to buy some milk". Then a sliding window of length 4 and
@@ -241,8 +239,6 @@ class WordpieceIndexer(TokenIndexer[int]):
 
         # Flatten the wordpiece windows
         wordpiece_ids = [wordpiece for sequence in wordpiece_windows for wordpiece in sequence]
-
-
         # Our mask should correspond to the original tokens,
         # because calling util.get_text_field_mask on the
         # "wordpiece_id" tokens will produce the wrong shape.
@@ -250,6 +246,11 @@ class WordpieceIndexer(TokenIndexer[int]):
         # have truncated the wordpieces; accordingly, we want the mask
         # to correspond to the remaining tokens after truncation, which
         # is captured by the offsets.
+        # ADDED BY RIK
+        # Don't use offsets if we don't want it, just keep BERT pieces
+        # Mainly important so that we take the correct mask later
+        if self.no_offsets:
+            offsets = [x for x in range(len(wordpiece_ids))]
         mask = [1 for _ in offsets]
 
         return {index_name: wordpiece_ids,
@@ -333,15 +334,19 @@ class PretrainedBertIndexer(WordpieceIndexer):
                  do_lowercase: bool = True,
                  never_lowercase: List[str] = None,
                  max_pieces: int = 512,
-                 truncate_long_sequences: bool = True) -> None:
+                 truncate_long_sequences: bool = True,
+                 no_offsets: bool = False,
+                 vocab_file=None) -> None:
         if pretrained_model.endswith("-cased") and do_lowercase:
             logger.warning("Your BERT model appears to be cased, "
                            "but your indexer is lowercasing tokens.")
         elif pretrained_model.endswith("-uncased") and not do_lowercase:
             logger.warning("Your BERT model appears to be uncased, "
                            "but your indexer is not lowercasing tokens.")
-
-        bert_tokenizer = BertTokenizer.from_pretrained(pretrained_model, do_lower_case=do_lowercase)
+        if vocab_file:
+            bert_tokenizer = BertTokenizer(vocab_file, do_lower_case=do_lowercase)
+        else:
+            bert_tokenizer = BertTokenizer.from_pretrained(pretrained_model, do_lower_case=do_lowercase)
         super().__init__(vocab=bert_tokenizer.vocab,
                          wordpiece_tokenizer=bert_tokenizer.wordpiece_tokenizer.tokenize,
                          namespace="bert",
@@ -352,7 +357,8 @@ class PretrainedBertIndexer(WordpieceIndexer):
                          start_tokens=["[CLS]"],
                          end_tokens=["[SEP]"],
                          separator_token="[SEP]",
-                         truncate_long_sequences=truncate_long_sequences)
+                         truncate_long_sequences=truncate_long_sequences,
+                         no_offsets=no_offsets)
 
     def __eq__(self, other):
         if isinstance(other, PretrainedBertIndexer):

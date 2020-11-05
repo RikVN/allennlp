@@ -37,11 +37,13 @@ class WordTokenizer(Tokenizer):
     """
     def __init__(self,
                  word_splitter: WordSplitter = None,
+                 char_word_splitter: WordSplitter = None,
                  word_filter: WordFilter = PassThroughWordFilter(),
                  word_stemmer: WordStemmer = PassThroughWordStemmer(),
                  start_tokens: List[str] = None,
                  end_tokens: List[str] = None) -> None:
         self._word_splitter = word_splitter or SpacyWordSplitter()
+        self._char_word_splitter = char_word_splitter
         self._word_filter = word_filter
         self._word_stemmer = word_stemmer
         self._start_tokens = start_tokens or []
@@ -51,14 +53,19 @@ class WordTokenizer(Tokenizer):
         self._end_tokens = end_tokens or []
 
     @overrides
-    def tokenize(self, text: str) -> List[Token]:
+    def tokenize(self, text: str, sem: list = None, ccg: list = None, lem: list = None, dep: list = None, pos: list = None, is_char: bool = True) -> List[Token]:
         """
         Does whatever processing is required to convert a string of text into a sequence of tokens.
 
         At a minimum, this uses a ``WordSplitter`` to split words into text.  It may also do
         stemming or stopword removal, depending on the parameters given to the constructor.
         """
-        words = self._word_splitter.split_words(text)
+        if sem or ccg or lem or dep or pos:
+            words = self._word_splitter.split_words(text, sem=sem, ccg=ccg, lem=lem, dep=dep, pos=pos)
+        elif self._char_word_splitter and is_char:
+            words = self._char_word_splitter.split_words(text)
+        else:
+            words = self._word_splitter.split_words(text)
         return self._filter_and_stem(words)
 
     @overrides
