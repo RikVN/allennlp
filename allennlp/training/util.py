@@ -172,23 +172,41 @@ def datasets_from_params(params: Params,
     if train_cache_dir:
         dataset_reader.cache_data(train_cache_dir)
         validation_and_test_dataset_reader.cache_data(validation_cache_dir)
+    sem_train = params.pop('train_data_path_sem') if 'train_data_path_sem' in params else None
+    ccg_train = params.pop('train_data_path_ccg') if 'train_data_path_ccg' in params else None
+    lem_train = params.pop('train_data_path_lem') if 'train_data_path_lem' in params else None
+    dep_train = params.pop('train_data_path_dep') if 'train_data_path_dep' in params else None
+    pos_train = params.pop('train_data_path_pos') if 'train_data_path_pos' in params else None
+    char_train = params.pop('train_data_path_char') if 'train_data_path_char' in params else None
 
     train_data_path = params.pop('train_data_path')
     logger.info("Reading training data from %s", train_data_path)
-    train_data = dataset_reader.read(train_data_path)
+    train_data = dataset_reader.read(train_data_path, sem_path=sem_train, ccg_path=ccg_train, lem_path=lem_train, dep_path=dep_train, pos_path=pos_train, char_path=char_train)
 
     datasets: Dict[str, Iterable[Instance]] = {"train": train_data}
 
     validation_data_path = params.pop('validation_data_path', None)
     if validation_data_path is not None:
         logger.info("Reading validation data from %s", validation_data_path)
-        validation_data = validation_and_test_dataset_reader.read(validation_data_path)
+        sem_dev = params.pop('validation_data_path_sem') if 'validation_data_path_sem' in params else None
+        ccg_dev = params.pop('validation_data_path_ccg') if 'validation_data_path_ccg' in params else None
+        lem_dev = params.pop('validation_data_path_lem') if 'validation_data_path_lem' in params else None
+        dep_dev = params.pop('validation_data_path_dep') if 'validation_data_path_dep' in params else None
+        pos_dev = params.pop('validation_data_path_pos') if 'validation_data_path_pos' in params else None
+        char_dev = params.pop('validation_data_path_char') if 'validation_data_path_char' in params else None
+        validation_data = validation_and_test_dataset_reader.read(validation_data_path, sem_path=sem_dev, ccg_path=ccg_dev, lem_path=lem_dev, dep_path=dep_dev, pos_path=pos_dev, char_path=char_dev)
         datasets["validation"] = validation_data
 
     test_data_path = params.pop("test_data_path", None)
     if test_data_path is not None:
         logger.info("Reading test data from %s", test_data_path)
-        test_data = validation_and_test_dataset_reader.read(test_data_path)
+        sem_test = params.pop('test_data_path_sem') if 'test_data_path_sem' in params else None
+        ccg_test = params.pop('test_data_path_ccg') if 'test_data_path_ccg' in params else None
+        lem_test = params.pop('test_data_path_lem') if 'test_data_path_lem' in params else None
+        dep_test = params.pop('test_data_path_dep') if 'test_data_path_dep' in params else None
+        pos_test = params.pop('test_data_path_pos') if 'test_data_path_pos' in params else None
+        char_test = params.pop('test_data_path_char') if 'test_data_path_char' in params else None
+        test_data = validation_and_test_dataset_reader.read(test_data_path, sem_path=sem_test, ccg_path=ccg_test, lem_path=lem_test, dep_path=dep_test, pos_path=pos_test, char_path=char_test)
         datasets["test"] = test_data
 
     return datasets
