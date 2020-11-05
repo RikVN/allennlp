@@ -208,6 +208,20 @@ def get_final_encoder_states(encoder_outputs: torch.Tensor,
     return final_encoder_output
 
 
+def get_averaged_encoder_states(encoder_outputs: torch.Tensor,
+                             mask: torch.Tensor,
+                             bidirectional: bool = False) -> torch.Tensor:
+    """
+    Given the output from a ``Seq2SeqEncoder``, with shape ``(batch_size, sequence_length,
+    encoding_dim)``, this method returns the average of all hidden states.
+    """
+	# Shape of encoder outputs: (batch_size, sequence_length, encoding_dim)
+	# Average after second dimension, for each batch
+    # Shape (batch_size, encoder_output_dim)
+    final_encoder_output = torch.mean(encoder_outputs, 1)
+    return final_encoder_output
+
+
 def get_dropout_mask(dropout_probability: float, tensor_for_masking: torch.Tensor):
     """
     Computes and returns an element-wise dropout mask for a given tensor, where
@@ -570,7 +584,7 @@ def get_text_field_mask(text_field_tensors: Dict[str, torch.Tensor],
     >>> var_mask.sum() # equals 4, due to 8 bit precision - the sum overflows.
     """
     if "mask" in text_field_tensors:
-        return text_field_tensors["mask"]
+       return text_field_tensors["mask"]
 
     tensor_dims = [(tensor.dim(), tensor) for tensor in text_field_tensors.values()]
     tensor_dims.sort(key=lambda x: x[0])
