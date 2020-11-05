@@ -10,6 +10,9 @@ The available Seq2Seq decoders are
 """
 from allennlp.modules.seq2seq_decoders.decoder_net import DecoderNet
 from allennlp.modules.seq2seq_decoders.lstm_cell_decoder_net import LstmCellDecoderNet
+from allennlp.modules.seq2seq_decoders.average_lstm_cell_decoder_net import AveragedLstmCellDecoderNet
+from allennlp.modules.seq2seq_decoders.marian_lstm_cell_decoder_net import MarianLstmCellDecoderNet
 from allennlp.modules.seq2seq_decoders.stacked_self_attention_decoder_net import StackedSelfAttentionDecoderNet
 from allennlp.modules.seq2seq_decoders.seq_decoder import SeqDecoder
 from allennlp.modules.seq2seq_decoders.auto_regressive_seq_decoder import AutoRegressiveSeqDecoder
+from allennlp.modules.seq2seq_decoders.new_auto_regressive_seq_decoder import NewAutoRegressiveSeqDecoder
