@@ -10,7 +10,7 @@ from allennlp.modules import TextFieldEmbedder, Seq2SeqEncoder, Embedding
 from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
 from allennlp.modules.seq2seq_decoders.seq_decoder import SeqDecoder
 from allennlp.nn import util, InitializerApplicator, RegularizerApplicator
-
+from allennlp.common.util import fixed_seeds
 
 @Model.register("composed_seq2seq")
 class ComposedSeq2Seq(Model):
@@ -52,17 +52,18 @@ class ComposedSeq2Seq(Model):
                  decoder: SeqDecoder,
                  tied_source_embedder_key: Optional[str] = None,
                  initializer: InitializerApplicator = InitializerApplicator(),
-                 regularizer: Optional[RegularizerApplicator] = None)-> None:
+                 regularizer: Optional[RegularizerApplicator] = None,
+                 encoder_feat: Optional[Seq2SeqEncoder] = None,
+                 char_text_embedder: TextFieldEmbedder = None)-> None:
 
         super(ComposedSeq2Seq, self).__init__(vocab, regularizer)
-
+        fixed_seeds()
         self._source_text_embedder = source_text_embedder
+        self._char_text_embedder = char_text_embedder
         self._encoder = encoder
         self._decoder = decoder
+        self._encoder_feat = encoder_feat
 
-        if self._encoder.get_output_dim() != self._decoder.get_output_dim():
-            raise ConfigurationError(f"Encoder output dimension {self._encoder.get_output_dim()} should be"
-                                     f" equal to decoder dimension {self._decoder.get_output_dim()}.")
         if tied_source_embedder_key:
             # A bit of a ugly hack to tie embeddings.
             # Works only for `BasicTextFieldEmbedder`, and since
@@ -85,6 +86,7 @@ class ComposedSeq2Seq(Model):
     @overrides
     def forward(self,  # type: ignore
                 source_tokens: Dict[str, torch.LongTensor],
+                char_tokens: Dict[str, torch.LongTensor] = None,
                 target_tokens: Dict[str, torch.LongTensor] = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
@@ -104,9 +106,26 @@ class ComposedSeq2Seq(Model):
         Dict[str, torch.Tensor]
             The output tensors from the decoder.
         """
-        state = self._encode(source_tokens)
+        # Make sure that we encode the features separately if we do two encoders
+        final_state = {}
+        keep_enc = {}
+        for key in source_tokens:
+            # Don't do separate feature encoding for two-encoders if we also have characters
+            # Characters are only added individually in a single encoder (two encoders max)
+            if (not char_tokens) and key in ['ccg', 'pos', 'dep', 'lem', 'sem', 'lem_glove'] and self._encoder_feat:
+                state = self._encode({key : source_tokens[key]}, ident=key)
+                final_state.update(state)
+            else:
+                keep_enc[key] = source_tokens[key]
+        # Check if we do character-encoding
+        if char_tokens:
+            state = self._encode(char_tokens, ident="char")
+            final_state.update(state)
 
-        return self._decoder(state, target_tokens)
+        # Finally do token encoding
+        tok_state = self._encode(keep_enc)
+        final_state.update(tok_state)
+        return self._decoder(final_state, target_tokens)
 
     @overrides
     def decode(self, output_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -115,7 +134,7 @@ class ComposedSeq2Seq(Model):
         """
         return self._decoder.post_process(output_dict)
 
-    def _encode(self, source_tokens: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def _encode(self, source_tokens: Dict[str, torch.Tensor], ident: str = '') -> Dict[str, torch.Tensor]:
         """
         Make foward pass on the encoder.
 
@@ -134,14 +153,23 @@ class ComposedSeq2Seq(Model):
             forward pass on the encoder.
         """
         # shape: (batch_size, max_input_sequence_length, encoder_input_dim)
-        embedded_input = self._source_text_embedder(source_tokens)
+        if ident == "char":
+            embedded_input = self._char_text_embedder(source_tokens)
+        else:
+            embedded_input = self._source_text_embedder(source_tokens)
         # shape: (batch_size, max_input_sequence_length)
         source_mask = util.get_text_field_mask(source_tokens)
         # shape: (batch_size, max_input_sequence_length, encoder_output_dim)
-        encoder_outputs = self._encoder(embedded_input, source_mask)
+        # Use feature encoder for features
+        if ident in ['ccg', 'pos', 'dep', 'lem', 'sem', 'lem_glove']:
+            encoder_outputs = self._encoder_feat(embedded_input, source_mask)
+        elif ident == "char":
+            encoder_outputs = self._encoder_feat(embedded_input, source_mask)
+        else:
+            encoder_outputs = self._encoder(embedded_input, source_mask)
         return {
-                "source_mask": source_mask,
-                "encoder_outputs": encoder_outputs,
+                "source_mask" + ident: source_mask,
+                "encoder_outputs" + ident: encoder_outputs,
         }
 
     @overrides
