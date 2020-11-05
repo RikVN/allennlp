@@ -230,7 +230,7 @@ def fine_tune_model(model: Model,
         mapping from model paths to the pretrained embedding filepaths
         used during fine-tuning.
     """
-    prepare_environment(params)
+
     if os.path.exists(serialization_dir) and os.listdir(serialization_dir):
         raise ConfigurationError(f"Serialization directory ({serialization_dir}) "
                                  f"already exists and is not empty.")
@@ -268,7 +268,7 @@ def fine_tune_model(model: Model,
                                      if key in datasets_for_vocab_creation))
 
         model.extend_embedder_vocab(embedding_sources_mapping)
-
+    prepare_environment(params)
     vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
 
     iterator = DataIterator.from_params(params.pop("iterator"))
