@@ -61,6 +61,7 @@ from allennlp.common.util import lazy_groups_of
 from allennlp.models.archival import load_archive
 from allennlp.predictors.predictor import Predictor, JsonDict
 from allennlp.data import Instance
+from allennlp.common.util import fixed_seeds
 
 class Predict(Subcommand):
     def add_subparser(self, name: str, parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -72,6 +73,7 @@ class Predict(Subcommand):
         subparser.add_argument('archive_file', type=str, help='the archived model to make predictions with')
         subparser.add_argument('input_file', type=str, help='path to or url of the input file')
 
+        subparser.add_argument('--feature-files', nargs="*", default=[], help='Path with feature files (e.g. sem, ccg, pos, etc)')
         subparser.add_argument('--output-file', type=str, help='path to output file')
         subparser.add_argument('--weights-file',
                                type=str,
@@ -81,7 +83,6 @@ class Predict(Subcommand):
         batch_size.add_argument('--batch-size', type=int, default=1, help='The batch size to use for processing')
 
         subparser.add_argument('--silent', action='store_true', help='do not print output to stdout')
-
         cuda_device = subparser.add_mutually_exclusive_group(required=False)
         cuda_device.add_argument('--cuda-device', type=int, default=-1, help='id of GPU to use (if any)')
 
@@ -131,7 +132,21 @@ class _PredictManager:
                  output_file: Optional[str],
                  batch_size: int,
                  print_to_console: bool,
-                 has_dataset_reader: bool) -> None:
+                 has_dataset_reader: bool,
+                 feature_files: list) -> None:
+        fixed_seeds()
+        self.possible_features = ['char', 'sem', 'lem', 'ccg', 'pos', 'dep']
+        self.add_features = {}
+        # Set the feature type here based on the feature file
+        for file_path in feature_files:
+            # Get name only
+            file_name = file_path.split('/')[-1]
+            for feat in self.possible_features:
+                # Save feat + file in dictionary
+                if feat in file_name:
+                    self.add_features[feat] = file_path
+                    # Only one feature per file
+                    break
 
         self._predictor = predictor
         self._input_file = input_file
@@ -191,7 +206,14 @@ class _PredictManager:
         elif self._dataset_reader is None:
             raise ConfigurationError("To generate instances directly, pass a DatasetReader.")
         else:
-            yield from self._dataset_reader.read(self._input_file)
+            # Check if we have features that we want to add as arguments
+            sem_path = self.add_features["sem"] if "sem" in self.add_features else None
+            ccg_path = self.add_features["ccg"] if "ccg" in self.add_features else None
+            dep_path = self.add_features["dep"] if "dep" in self.add_features else None
+            lem_path = self.add_features["lem"] if "lem" in self.add_features else None
+            pos_path = self.add_features["pos"] if "pos" in self.add_features else None
+            char_path = self.add_features["char"] if "char" in self.add_features else None
+            yield from self._dataset_reader.read(self._input_file, sem_path=sem_path, ccg_path=ccg_path, lem_path=lem_path, dep_path=dep_path, pos_path=pos_path, char_path=char_path)
 
     def run(self) -> None:
         has_reader = self._dataset_reader is not None
@@ -223,5 +245,6 @@ def _predict(args: argparse.Namespace) -> None:
                               args.output_file,
                               args.batch_size,
                               not args.silent,
-                              args.use_dataset_reader)
+                              args.use_dataset_reader,
+                              args.feature_files)
     manager.run()
