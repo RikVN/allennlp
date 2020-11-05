@@ -17,8 +17,8 @@ from allennlp.nn.beam_search import BeamSearch
 from allennlp.training.metrics import Metric
 from allennlp.common.util import fixed_seeds
 
-@SeqDecoder.register("new_auto_regressive_seq_decoder")
-class NewAutoRegressiveSeqDecoder(SeqDecoder):
+@SeqDecoder.register("auto_regressive_seq_decoder")
+class AutoRegressiveSeqDecoder(SeqDecoder):
     """
     An autoregressive decoder that can be used for most seq2seq tasks.
     # Parameters
