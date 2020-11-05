@@ -9,7 +9,7 @@ from allennlp.data.instance import Instance
 from allennlp.common import Tqdm, util
 from allennlp.common.checks import ConfigurationError
 from allennlp.common.registrable import Registrable
-
+from allennlp.common.util import fixed_seeds
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 class _LazyInstances(Iterable):
@@ -66,6 +66,7 @@ class DatasetReader(Registrable):
         reloads the dataset each time it's called. Otherwise, ``instances()`` returns a list.
     """
     def __init__(self, lazy: bool = False) -> None:
+        fixed_seeds()
         self.lazy = lazy
         self._cache_directory: pathlib.Path = None
 
@@ -88,7 +89,7 @@ class DatasetReader(Registrable):
         self._cache_directory = pathlib.Path(cache_directory)
         os.makedirs(self._cache_directory, exist_ok=True)
 
-    def read(self, file_path: str) -> Iterable[Instance]:
+    def read(self, file_path: str, sem_path: str = None, ccg_path: str = None, lem_path: str = None, dep_path: str = None, pos_path: str = None, char_path: str = None) -> Iterable[Instance]:
         """
         Returns an ``Iterable`` containing all the instances
         in the specified dataset.
@@ -127,7 +128,7 @@ class DatasetReader(Registrable):
             if cache_file and os.path.exists(cache_file):
                 instances = self._instances_from_cache_file(cache_file)
             else:
-                instances = self._read(file_path)
+                instances = self._read(file_path, sem_path=sem_path, ccg_path=ccg_path, lem_path=lem_path, dep_path=dep_path, pos_path=pos_path, char_path=char_path)
 
             # Then some validation.
             if not isinstance(instances, list):
