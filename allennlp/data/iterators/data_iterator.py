@@ -13,7 +13,7 @@ from allennlp.data.dataset import Batch
 from allennlp.data.fields import MetadataField
 from allennlp.data.instance import Instance
 from allennlp.data.vocabulary import Vocabulary
-
+from allennlp.common.util import fixed_seeds
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 TensorDict = Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]  # pylint: disable=invalid-name
@@ -64,6 +64,7 @@ class DataIterator(Registrable):
                  cache_instances: bool = False,
                  track_epoch: bool = False,
                  maximum_samples_per_batch: Tuple[str, int] = None) -> None:
+        fixed_seeds()
         self.vocab: Vocabulary = None
 
         self._batch_size = batch_size

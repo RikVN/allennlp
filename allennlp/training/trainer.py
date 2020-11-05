@@ -28,7 +28,7 @@ from allennlp.training.tensorboard_writer import TensorboardWriter
 from allennlp.training.trainer_base import TrainerBase
 from allennlp.training import util as training_util
 from allennlp.training.moving_average import MovingAverage
-
+from allennlp.common.util import fixed_seeds
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
@@ -60,7 +60,8 @@ class Trainer(TrainerBase):
                  should_log_parameter_statistics: bool = True,
                  should_log_learning_rate: bool = False,
                  log_batch_size_period: Optional[int] = None,
-                 moving_average: Optional[MovingAverage] = None) -> None:
+                 moving_average: Optional[MovingAverage] = None,
+                 val_after_epoch: int = -1) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -173,7 +174,7 @@ class Trainer(TrainerBase):
             model if we load it later. But this may cause problems if you restart the training from checkpoint.
         """
         super().__init__(serialization_dir, cuda_device)
-
+        fixed_seeds()
         # I am not calling move_to_gpu here, because if the model is
         # not already on the GPU then the optimizer is going to be wrong.
         self.model = model
@@ -184,6 +185,7 @@ class Trainer(TrainerBase):
         self.optimizer = optimizer
         self.train_data = train_dataset
         self._validation_data = validation_dataset
+        self.val_after_epoch = val_after_epoch
 
         if patience is None:  # no early stopping
             if validation_dataset:
@@ -258,6 +260,9 @@ class Trainer(TrainerBase):
             assert len(batch_group) == 1
             batch = batch_group[0]
             batch = nn_util.move_to_device(batch, self._cuda_devices[0])
+            #for item in batch:
+                #print ("batch key", item)
+            #print (batch)
             output_dict = self.model(**batch)
 
         try:
@@ -485,7 +490,7 @@ class Trainer(TrainerBase):
                 if key.startswith('gpu_'):
                     metrics["peak_"+key] = max(metrics.get("peak_"+key, 0), value)
 
-            if self._validation_data is not None:
+            if self._validation_data is not None and epoch > self.val_after_epoch:
                 with torch.no_grad():
                     # We have a validation set, so compute all the metrics on it.
                     val_loss, num_batches = self._validation_loss()
@@ -498,6 +503,8 @@ class Trainer(TrainerBase):
                     if self._metric_tracker.should_stop_early():
                         logger.info("Ran out of patience.  Stopping training.")
                         break
+            else:
+                logger.info("Skip validation, likely because we specified val_after_epoch = {0}".format(self.val_after_epoch))
 
             self._tensorboard.log_metrics(train_metrics,
                                           val_metrics=val_metrics,
@@ -674,6 +681,7 @@ class Trainer(TrainerBase):
         grad_clipping = params.pop_float("grad_clipping", None)
         lr_scheduler_params = params.pop("learning_rate_scheduler", None)
         momentum_scheduler_params = params.pop("momentum_scheduler", None)
+        val_after_epoch = params.pop("val_after_epoch", -1)
 
         if isinstance(cuda_device, list):
             model_device = cuda_device[0]
@@ -744,4 +752,5 @@ class Trainer(TrainerBase):
                    should_log_parameter_statistics=should_log_parameter_statistics,
                    should_log_learning_rate=should_log_learning_rate,
                    log_batch_size_period=log_batch_size_period,
-                   moving_average=moving_average)
+                   moving_average=moving_average,
+                   val_after_epoch=val_after_epoch)

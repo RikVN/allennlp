@@ -7,7 +7,7 @@ from allennlp.common.util import lazy_groups_of
 from allennlp.data.instance import Instance
 from allennlp.data.iterators.data_iterator import DataIterator
 from allennlp.data.dataset import Batch
-
+from allennlp.common.util import fixed_seeds
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
@@ -19,6 +19,7 @@ class BasicIterator(DataIterator):
     It takes the same parameters as :class:`allennlp.data.iterators.DataIterator`
     """
     def _create_batches(self, instances: Iterable[Instance], shuffle: bool) -> Iterable[Batch]:
+        fixed_seeds()
         # First break the dataset into memory-sized lists:
         for instance_list in self._memory_sized_lists(instances):
             if shuffle:

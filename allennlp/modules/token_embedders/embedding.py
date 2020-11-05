@@ -22,7 +22,7 @@ from allennlp.data import Vocabulary
 from allennlp.modules.token_embedders.token_embedder import TokenEmbedder
 from allennlp.modules.time_distributed import TimeDistributed
 from allennlp.nn import util
-
+from allennlp.common.util import fixed_seeds
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
@@ -95,6 +95,7 @@ class Embedding(TokenEmbedder):
                  vocab_namespace: str = None,
                  pretrained_file: str = None) -> None:
         super(Embedding, self).__init__()
+        fixed_seeds()
         self.num_embeddings = num_embeddings
         self.padding_index = padding_index
         self.max_norm = max_norm

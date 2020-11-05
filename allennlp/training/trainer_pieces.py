@@ -11,7 +11,7 @@ from allennlp.data.iterators.data_iterator import DataIterator
 from allennlp.data.vocabulary import Vocabulary
 from allennlp.models.model import Model
 from allennlp.training import util as training_util
-
+from allennlp.common.util import fixed_seeds
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
@@ -39,6 +39,7 @@ class TrainerPieces(NamedTuple):
                     recover: bool = False,
                     cache_directory: str = None,
                     cache_prefix: str = None) -> 'TrainerPieces':
+        fixed_seeds()
         all_datasets = training_util.datasets_from_params(params, cache_directory, cache_prefix)
         datasets_for_vocab_creation = set(params.pop("datasets_for_vocab_creation", all_datasets))
 
