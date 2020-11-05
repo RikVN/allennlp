@@ -45,6 +45,16 @@ START_SYMBOL = '@start@'
 END_SYMBOL = '@end@'
 
 
+# Function added by Rik
+def is_int(string):
+    '''Check if a string is an integer'''
+    try:
+        int(string)
+        return True
+    except ValueError:
+        return False
+
+
 def sanitize(x: Any) -> Any:  # pylint: disable=invalid-name,too-many-return-statements
     """
     Sanitize turns PyTorch and Numpy types into basic Python types so they
@@ -194,16 +204,41 @@ def prepare_environment(params: Params):
     torch_seed = params.pop_int("pytorch_seed", 133)
 
     if seed is not None:
+        logging.info("Set seed to {0}".format(seed))
         random.seed(seed)
     if numpy_seed is not None:
         numpy.random.seed(numpy_seed)
+        logging.info("Set numpy seed to {0}".format(numpy_seed))
     if torch_seed is not None:
         torch.manual_seed(torch_seed)
+        logging.info("Set torch seed to {0}".format(torch_seed))
         # Seed all GPUs with the same seed if available.
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(torch_seed)
-
+    # Rik added:
+    fixed_seeds()
     log_pytorch_version_info()
+
+
+def fixed_seeds():
+    '''Set seeds to environment variable CUR_SEED, if it's available,
+    else always use 1337.
+    See: https://github.com/pytorch/pytorch/issues/7068'''
+    if "CUR_SEED" in os.environ:
+        seed = int(os.environ["CUR_SEED"])
+    else:
+        seed = 1337
+    logging.info("Setting all seeds to {0}".format(seed))
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    numpy.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed) # if you are using multi-GPU.
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
 
 def prepare_global_logging(serialization_dir: str, file_friendly_logging: bool) -> logging.FileHandler:
     """
@@ -246,7 +281,6 @@ def prepare_global_logging(serialization_dir: str, file_friendly_logging: bool) 
     stdout_handler = logging.FileHandler(std_out_file)
     stdout_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s'))
     logging.getLogger().addHandler(stdout_handler)
-
     return stdout_handler
 
 def cleanup_global_logging(stdout_handler: logging.FileHandler) -> None:
