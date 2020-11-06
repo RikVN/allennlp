@@ -1,3 +1,14 @@
+# Important #
+**To use the fork I used in my experiments, run this**
+
+```
+git clone https://github.com/RikVN/allennlp
+cd allennlp
+git checkout DRS
+```
+
+The master branch is out of date with my experiments.
+
 <div align="center">
     <br>
     <img src="https://raw.githubusercontent.com/allenai/allennlp/master/docs/img/allennlp-logo-dark.png" width="400"/>
