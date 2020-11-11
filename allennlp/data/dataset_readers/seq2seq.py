@@ -94,7 +94,10 @@ class Seq2SeqDatasetReader(DatasetReader):
             char = [x.strip() for x in open(char_path, 'r')]
         with open(cached_path(file_path), "r") as data_file:
             logger.info("Reading instances from lines in file at: %s", file_path)
-            for line_num, row in enumerate(csv.reader(data_file, delimiter=self._delimiter)):
+            # CSV reader messes up non-aligned quotes, just read like this
+            for line_num, raw_row in enumerate(data_file):
+            #for line_num, row in enumerate(csv.reader(data_file, delimiter=self._delimiter)):
+                row = raw_row.split(self._delimiter)
                 if len(row) != 2:
                     raise ConfigurationError("Invalid line format: %s (line number %d)" % (row, line_num + 1))
                 source_sequence, target_sequence = row
